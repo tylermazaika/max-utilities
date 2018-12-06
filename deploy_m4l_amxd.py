@@ -14,11 +14,17 @@ import argparse    # parse arguments / options
 import datetime    # for logging history of versions moved
 import re
 
-SOURCE_DIR=os.path.expanduser("~/Max for Live - Development Snapshots")
+# External to Live's search path.  Holds individually-named build versions.
+SOURCE_DIR=os.path.expanduser("~/build/m4l_amxd")
 
-PRODUCTION_DEPLOY_DIR=os.path.expanduser("~/Music/Ableton/User Library/M4L Toolkit v1")
-DEVELOPMENT_DEPLOY_DIR=os.path.expanduser("~/Desktop/M4L Toolkit DEVELOPMENT") # not in the Live search path
+# External to Live's search path.  Devices copied from SOURCE_DIR to here with a 
+# uniform name (so the same set can be used with newer device versions as they are made.)
+DEVELOPMENT_DEPLOY_DIR=os.path.expanduser("~/build/m4l_DEVELOPMENT")
 DEVELOPMENT_DEVICE_SUFFIX="-DEV"
+
+# In Live's search path.
+PRODUCTION_DEPLOY_DIR=os.path.expanduser("~/Music/Ableton/User Library/M4L Toolkit v1") # in live search path
+
 
 for folder in ( SOURCE_DIR, PRODUCTION_DEPLOY_DIR, DEVELOPMENT_DEPLOY_DIR ):
 	assert os.path.exists( folder ), "Required directory does not exist.\n{}".format( folder )
