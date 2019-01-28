@@ -123,7 +123,7 @@ if os.path.exists( target_file_full_path ):
 			exit(1)
 
 # Copy the file into place
-info_string = '{:19} {:6} {:30} -> {:30}  ("{}" --> "{}")'.format( str(datetime.datetime.now())[:-7], log_label_string, source_file_full_path.split("/")[-1], target_file_full_path.split("/")[-1], source_file_full_path, target_file_full_path)
+info_string = '{:19} {:6} {:30} --> {:30}  \n  ("{}" --> "{}")'.format( str(datetime.datetime.now())[:-7], log_label_string, source_file_full_path.split("/")[-1], target_file_full_path.split("/")[-1], source_file_full_path, target_file_full_path)
 print
 print info_string
 print
