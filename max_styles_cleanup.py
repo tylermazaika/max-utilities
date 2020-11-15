@@ -2,50 +2,27 @@
 # 
 # max_styles_cleanup.py
 #
-# Remove all unused styles from a .maxpat file
+# Remove all unused styles from a .maxpat file.
 #
 # 2020-01-23
 # Tyler Mazaika
 # 
 
-"""
-
-purging styles regexp
-(\,\s{3,})\{\s+"name" : "(sand|pattr|testing_objects|camo|steel)(-\d+)+"[^\}]+[^\{]+"multi" : 0\s+\}
-
-This doesn't work with some styles (which might lack some additional keys).  Copy-paste into sublime
-
-
-^(\,\s{3,})\{\s^(\s+)"name" : "(sand|pattr|testing_objects|camo|charcoal|heat|steel)(-\d+)+"[^\}]+[^\{]+\2"multi" : []\s+\}\s
-
-
-how do we find styles which are not used in the file in which they are associated?
-^(\,\s{3,})\{\s^(\s+)"name" : "(\w+)"[^\}]+[^\{]+\2"multi" : [01]\s+\}\s
-When used in a box, a style name would appear as:   "style" : "<stylemame>"
-
-
-Overall Logic Flow:
-1. Get list of all styles names referenced in the file
-2. Figure out which one is the primary document style.  Remove this from the list.
-3. Figure out which (if any) of the other style definitions are actually referenced from this file.
-4. In the list of initial definitions, remove anything which was neither (a) the primary style nor (b) used anywhere else in this file.
-"""
-
 
 import os          # filesytem operations
-import subprocess
 import argparse    # parse arguments / options
-import datetime    # for logging history of versions moved
 import re
 import json
-
-
 
 
 ##### Argument Parsing
 parser = argparse.ArgumentParser(prefix_chars="--", add_help=True, description="""
 
-Remove all unused object style information in a Max patcher.
+Remove all unused object style information in a Max patcher file (-f).  
+
+Use with -i (--in_place) to rewrite the file (-f) in its current location. 
+
+Without -i, files are written to /tmp/max_styles_cleanup/.  This allows you to open the file to preview/verify that the style removal has behaved correctly and with no unintended side effects.
 
 EXAMPLES:
 
@@ -57,6 +34,10 @@ EXAMPLES:
  (2) In-place cleanup of all children in the current directory:
 
 	find "$(pwd)" | grep .maxpat | xargs -I{} /Users/tyler/dev/max-utilities/max_styles_cleanup.py -f {} -i
+
+ (3) Do a cleanup of my_maxpat.maxpat, writing the new file to /tmp/max_styles_cleanup.
+
+    max_styles_cleanup.py -f my_maxpat.maxpat
   
 """, formatter_class=argparse.RawTextHelpFormatter, epilog="""
 
@@ -67,6 +48,8 @@ parser.add_argument("-f", "--file_name", required=True, \
 	help="The full path of the argument to process.")
 parser.add_argument("-i", "--in_place", action="store_true", \
 	help="Replace text in place.")
+parser.add_argument("-v", "--verbose", action="store_true", \
+	help="Verbose style output (of used styles).")
 args = parser.parse_args()
 
 
@@ -126,10 +109,12 @@ def clear_unused_styles_in_file( source_file_full_path ):
 
 	print
 	json_styles_replacement = []
-	print "Known style values:"
+	if args.verbose:
+		print "Known style values:"
 	for k in styles_dictionary:
-		print "Style name: ", k
-		print styles_dictionary[k]
+		if args.verbose:
+			print "Style name: ", k
+			print styles_dictionary[k]
 		json_styles_replacement.append( json.JSONDecoder().decode( styles_dictionary[k]) )
 	# print json_styles_replacement
 
@@ -177,12 +162,43 @@ def clear_unused_styles_in_file( source_file_full_path ):
 		with open(source_file_full_path, "w") as original_file:
 			original_file.write( json.JSONEncoder().encode( js ))
 	else:
-		with open("/tmp/max_styles_cleanup_tmp.maxpat", "w") as tmp:
-			tmp.write( json.JSONEncoder().encode( js ) )
 
-	# print styles_found
-	# print patchers_found
+		new_file_path = "/tmp/max_styles_cleanup/{}".format(source_file_full_path.split("/")[-1])
+		if not os.path.exists("/tmp/max_styles_cleanup"):
+			os.mkdir("/tmp/max_styles_cleanup")
+		with open(new_file_path, "w") as tmp:
+			tmp.write( json.JSONEncoder().encode( js ) )
+		print " ->", new_file_path
+
 	print "Replaced {} styles dictionaries in {} subpatchers.".format( styles_found, patchers_found )
 	print
 
 clear_unused_styles_in_file( args.file_name )
+
+
+
+"""
+DEVELOPMENT NOTES
+
+
+purging styles regexp
+(\,\s{3,})\{\s+"name" : "(sand|pattr|testing_objects|camo|steel)(-\d+)+"[^\}]+[^\{]+"multi" : 0\s+\}
+
+This doesn't work with some styles (which might lack some additional keys).  Copy-paste into sublime
+
+
+^(\,\s{3,})\{\s^(\s+)"name" : "(sand|pattr|testing_objects|camo|charcoal|heat|steel)(-\d+)+"[^\}]+[^\{]+\2"multi" : []\s+\}\s
+
+
+how do we find styles which are not used in the file in which they are associated?
+^(\,\s{3,})\{\s^(\s+)"name" : "(\w+)"[^\}]+[^\{]+\2"multi" : [01]\s+\}\s
+When used in a box, a style name would appear as:   "style" : "<stylemame>"
+
+
+Overall Logic Flow:
+1. Get list of all styles names referenced in the file
+2. Figure out which one is the primary document style.  Remove this from the list.
+3. Figure out which (if any) of the other style definitions are actually referenced from this file.
+4. In the list of initial definitions, remove anything which was neither (a) the primary style nor (b) used anywhere else in this file.
+"""
+
