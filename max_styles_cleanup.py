@@ -63,6 +63,8 @@ patchers_found = 0
 
 
 def clear_unused_styles_in_file( source_file_full_path ):
+
+	# Build used_style_names. Read the file and look for all places where a style is explicity assigned.
 	with open(source_file_full_path) as original_file:
 		
 		used_style_names = []
@@ -77,17 +79,21 @@ def clear_unused_styles_in_file( source_file_full_path ):
 	# Keep a list of the used styles.  We will use this to replace instances of the "styles" dictionary in all the subpatchers later
 	styles_dictionary = {} # name : settings
 
-	# Get all the found style definitions themselves
+	# Store the text of ALL style definitions.
 	with open(source_file_full_path) as original_file:
 		# Get all the found style definitions
 		unused_style_names = []
 		file_text = original_file.read()
 
+		# Make a list of matches of the style dictionary pattern
 		style_definiton = re.findall(r'''(^,\s{3,})(\{\s^\s+"name" : "([^\"]+)"[^\}]+[^\{]+"multi" : 0\s+\})''', file_text, re.MULTILINE)
 		
 		if style_definiton:
+			# Iterate the list to get the 
 			for s in style_definiton:
+				# s[2] is the name of the style.  s[1] is the style data
 				if s[2] in used_style_names:
+					# It's possible we will be defining and then re-defining the style over and over again here.  Maybe we'd only want to add the data the first time through?
 					styles_dictionary[s[2]] = s[1]
 				elif s[2] not in unused_style_names:
 					unused_style_names.append( s[2] )
@@ -108,6 +114,12 @@ def clear_unused_styles_in_file( source_file_full_path ):
 
 
 	print
+
+
+
+	'''
+	Styles are stored as an array/list in JSON. So initialize a new list for the styles and then add _only_ the known used styles to it.  We will then replace the "styles" indexes with this data in the future.
+	'''
 	json_styles_replacement = []
 	if args.verbose:
 		print "Known style values:"
@@ -125,28 +137,49 @@ def clear_unused_styles_in_file( source_file_full_path ):
 	styles_found = 0
 	patchers_found = 0
 
+	# Recursively churn in the file and replace style definitions with our style dict
 	def styles_replacement( json_obj ):
 		global styles_found
 		global patchers_found
 		# nonlocal patchers_found
 		# nonlocal styles_found
-		if "styles" in json_obj.keys():
-			# print 'found style'
-			styles_found += 1
-			# print json_obj["styles"]
-			json_obj["styles"] = json_styles_replacement
-		
+
+		# Keep track of styles used at this patcher level
+		styles_used_by_boxes_in_this_patcher = []
+
+		# Only patcher objects define a "boxes" key
 		if "boxes" in json_obj:
 			for b in json_obj["boxes"]:
+
+				
+				# If a box uses a style, make sure we note that style as required in this patcher level.
+				if "style" in b["box"]:
+					# print "BOX HAD Style", b["box"]["style"], styles_used_by_boxes_in_this_patcher
+					styles_used_by_boxes_in_this_patcher.append( b["box"]["style"] )
 				# print
 				# print "\n"*5
 				if "patcher" in b["box"]:
 					# print b["box"]
-					styles_replacement( b["box"] )
+					styles_replacement( b["box"] ) # Recurse and do it again
+
+		# Only patcher objects define a "styles" key
+		if "styles" in json_obj.keys(): 
+			# print 'found style'
+			styles_found += 1
+			# print json_obj["styles"]
+
+			# Add this patchers style to the used styles in this patcher.
+			if json_obj["style"] not in styles_used_by_boxes_in_this_patcher:
+				styles_used_by_boxes_in_this_patcher.append( json_obj["style"] )
+
+			# Set the json styles dict to be only the known used styles.
+			json_obj["styles"] = [ s for s in json_styles_replacement if s["name"] in styles_used_by_boxes_in_this_patcher ]
+
+
 		
 		if "patcher" in json_obj:
 			patchers_found += 1
-			styles_replacement( json_obj["patcher"] )
+			styles_replacement( json_obj["patcher"] ) # Recurse and do it again
 
 
 	### Read the original file
